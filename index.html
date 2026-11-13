@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Company Car Booking</title>
+<meta name="theme-color" content="#1d5fc4">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky tab bar; each view is a form/list column beside a day timeline (cars × hours), stacking on phones */
+:root{
+  --bg:#eef2f5; --surface:#ffffff; --sunk:#f6f8fa; --ink:#15202b; --muted:#5a6878; --line:#d6dee6;
+  --accent:#1d5fc4; --accent-ink:#ffffff; --accent-soft:#e3ecfa;
+  --c-santafe:#2453a6; --c-tucson:#17806a; --c-largus:#a85a1c; --c-none:#7a8694;
+  --ok:#1f7a4d; --warn:#a86a00; --bad:#c0392b; --bad-soft:#fbe9e7; --warn-soft:#fdf2dc;
+  --font:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e141a; --surface:#161f28; --sunk:#111920; --ink:#e4ebf2; --muted:#93a2b2; --line:#283643;
+  --accent:#6ea2ff; --accent-ink:#0b1420; --accent-soft:#1b2b45;
+  --c-santafe:#3f6fc9; --c-tucson:#1f9a7e; --c-largus:#b8692c; --c-none:#66727f;
+  --ok:#4cc28a; --warn:#e3a740; --bad:#ff7a6b; --bad-soft:#3a1f1c; --warn-soft:#3a2d14; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e141a; --surface:#161f28; --sunk:#111920; --ink:#e4ebf2; --muted:#93a2b2; --line:#283643;
+  --accent:#6ea2ff; --accent-ink:#0b1420; --accent-soft:#1b2b45;
+  --c-santafe:#3f6fc9; --c-tucson:#1f9a7e; --c-largus:#b8692c; --c-none:#66727f;
+  --ok:#4cc28a; --warn:#e3a740; --bad:#ff7a6b; --bad-soft:#3a1f1c; --warn-soft:#3a2d14; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+header.top .wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-block:10px}
+.brand{display:flex;flex-direction:column;line-height:1.15;margin-right:auto}
+.brand b{font-size:17px;font-weight:700;letter-spacing:-.01em}
+.brand span{font-size:12px;color:var(--muted)}
+nav.tabs{display:flex;gap:4px;flex-wrap:wrap}
+nav.tabs a{padding:8px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-weight:500;font-size:14px}
+nav.tabs a:hover{background:var(--sunk);color:var(--ink)}
+nav.tabs a[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+.status{font-size:12px;color:var(--muted);padding-block:8px}
+.status.bad{color:var(--bad)}
+main{padding-block:8px 48px}
+h1{font-size:22px;margin:8px 0 4px;text-wrap:balance;letter-spacing:-.01em}
+h2{font-size:16px;margin:0 0 10px;text-wrap:balance}
+.lead{color:var(--muted);margin:0 0 16px;max-width:65ch}
+.grid{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.stack{display:flex;flex-direction:column;gap:14px}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:500;color:var(--muted)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+input,select,textarea,button{font:inherit;color:inherit}
+input[type=text],input[type=date],input[type=time],input[type=tel],input[type=number],select,textarea{
+  width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);color:var(--ink);font-size:15px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,.mode:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+textarea{resize:vertical;min-height:56px}
+.time{font-family:var(--mono);font-variant-numeric:tabular-nums}
+fieldset{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+legend{font-size:13px;font-weight:500;color:var(--muted);margin-bottom:6px}
+.mode{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer;background:var(--sunk)}
+.mode input{margin-top:3px;accent-color:var(--accent)}
+.mode b{display:block;font-size:14px}
+.mode small{color:var(--muted);font-size:12.5px}
+.mode:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.pax{display:flex;gap:6px;flex-wrap:wrap}
+.pax label{position:relative}
+.pax input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.pax span{display:inline-flex;align-items:center;justify-content:center;width:40px;height:38px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);font-family:var(--mono);font-weight:600;color:var(--ink)}
+.pax input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.pax input:focus-visible+span{outline:2px solid var(--accent);outline-offset:1px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-weight:500;font-size:14px}
+.btn:hover{background:var(--sunk)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600;padding:11px 16px}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.danger{color:var(--bad)}
+.btn.danger.armed{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.preview{border-radius:8px;padding:10px 12px;font-size:14px;background:var(--sunk);border:1px dashed var(--line)}
+.preview.ok{border-style:solid;border-color:color-mix(in srgb,var(--ok) 40%,var(--line))}
+.preview.warn{background:var(--warn-soft);border-color:transparent}
+.preview.err{background:var(--bad-soft);border-color:transparent;color:var(--bad)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:12.5px;font-weight:600;color:#fff;white-space:nowrap}
+.chip.santafe{background:var(--c-santafe)}.chip.tucson{background:var(--c-tucson)}.chip.largus{background:var(--c-largus)}.chip.none{background:var(--c-none)}
+.plate{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--ink);background:var(--surface);white-space:nowrap}
+.flag{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px}
+.flag.bad{background:var(--bad-soft);color:var(--bad)}
+.flag.warn{background:var(--warn-soft);color:var(--warn)}
+.flag.ok{color:var(--ok)}
+.flag.muted{color:var(--muted);background:var(--sunk)}
+/* timeline */
+.daynav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.daynav .d{font-family:var(--mono);font-weight:600;font-size:15px;min-width:150px}
+.daynav input[type=date]{width:auto}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tl{min-width:680px}
+.tl-row{display:grid;grid-template-columns:112px 1fr;align-items:stretch;border-top:1px solid var(--line)}
+.tl-row:first-child{border-top:0}
+.tl-lab{padding:8px 8px 8px 0;display:flex;flex-direction:column;justify-content:center;gap:3px;font-weight:600;font-size:14px}
+.tl-lab small{font-weight:400;color:var(--muted);font-size:11.5px}
+.tl-track{position:relative;height:60px;background-image:repeating-linear-gradient(90deg,var(--line) 0 1px,transparent 1px 100%);background-size:var(--hw) 100%}
+.tl-track.off{background-color:var(--sunk);background-image:repeating-linear-gradient(135deg,var(--line) 0 2px,transparent 2px 9px)}
+.tl-off{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;color:var(--muted)}
+.tl-scale{position:relative;height:20px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.tl-scale span{position:absolute;transform:translateX(-50%);top:2px}
+.blk{position:absolute;top:6px;bottom:6px;border-radius:6px;color:#fff;font-size:11.5px;line-height:1.25;padding:3px 6px;overflow:hidden;min-width:4px}
+.blk>span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk.santafe{background:var(--c-santafe)}.blk.tucson{background:var(--c-tucson)}.blk.largus{background:var(--c-largus)}.blk.none{background:var(--c-none)}
+.blk.conf{outline:2px solid var(--bad);outline-offset:1px}
+.blk.ghost{background:transparent;border:2px dashed var(--accent);color:var(--accent);font-weight:600}
+.blk .t{font-family:var(--mono);font-weight:600}
+.blk .who{font-weight:600}
+.gap{position:absolute;top:50%;height:0;border-top:2px dotted var(--muted);opacity:.6}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:18px;height:10px;border-radius:3px;vertical-align:middle;margin-right:5px}
+/* lists */
+.trips{display:flex;flex-direction:column;gap:10px}
+.trip{display:grid;grid-template-columns:92px minmax(0,1fr) auto;gap:14px;align-items:start;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.trip.cancelled{opacity:.55}
+.trip .when{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.trip .when b{display:block;font-size:17px}
+.trip .when small{color:var(--muted);font-size:12px}
+.trip .what{min-width:0;display:flex;flex-direction:column;gap:4px}
+.trip .what .dest{font-weight:600;font-size:15px;overflow-wrap:anywhere}
+.trip .what .meta{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.trip .side{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.legs{display:flex;flex-direction:column;gap:2px;font-size:13.5px}
+.legs .time{font-weight:600}
+@media (max-width:560px){.trip{grid-template-columns:minmax(0,1fr)}.trip .side{align-items:flex-start;flex-direction:row;flex-wrap:wrap}}
+.empty{padding:22px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r);background:var(--surface)}
+.sect{margin-top:28px}
+.carpick{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.carpick button{padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-weight:600}
+.carpick button[aria-pressed="true"]{color:#fff;border-color:transparent}
+.carpick button.santafe[aria-pressed="true"]{background:var(--c-santafe)}
+.carpick button.tucson[aria-pressed="true"]{background:var(--c-tucson)}
+.carpick button.largus[aria-pressed="true"]{background:var(--c-largus)}
+.drvcard{display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:13.5px;color:var(--muted);margin-bottom:12px}
+.drvcard b{color:var(--ink)}
+/* dispatcher */
+table.t{border-collapse:collapse;width:100%;font-size:13.5px}
+table.t th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;font-weight:600;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+table.t td.time{white-space:nowrap}
+table.t select{padding:5px 8px;font-size:13.5px;width:auto}
+.month{border-collapse:separate;border-spacing:2px;font-size:12px}
+.month th{font-weight:500;color:var(--muted);padding:2px;text-align:center;font-family:var(--mono);font-size:11px;line-height:1.2}
+.month th.we{color:var(--bad)}
+.month th.today{color:var(--accent);font-weight:700}
+.month td.lab{font-weight:600;font-size:13px;padding-right:8px;white-space:nowrap}
+.month button.cell{width:30px;height:34px;border-radius:5px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-family:var(--mono);font-size:10.5px;padding:0;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1}
+.month button.cell.we{background:var(--sunk)}
+.month button.cell.past{opacity:.45}
+.month button.cell.off{background-color:var(--bad-soft);color:var(--bad);border-color:transparent;font-weight:700;background-image:repeating-linear-gradient(135deg,color-mix(in srgb,var(--bad) 22%,transparent) 0 2px,transparent 2px 7px)}
+.month button.cell .n{font-size:10px;color:var(--ink)}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar select{width:auto}
+.cars-edit{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:760px){.cars-edit{grid-template-columns:minmax(0,1fr)}}
+.summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.summary .s{padding:8px 12px;border-radius:8px;background:var(--surface);border:1px solid var(--line);font-size:13px}
+.summary .s b{font-family:var(--mono);font-size:16px;margin-right:4px}
+.summary .s.bad{background:var(--bad-soft);border-color:transparent;color:var(--bad)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;z-index:20;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.note{font-size:12.5px;color:var(--muted)}
+.inline{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.inline select{width:auto}
+@media (prefers-reduced-motion:no-preference){.blk,.btn,.mode{transition:background-color .15s,border-color .15s}}
+.gate{max-width:440px;margin:24px auto}
+.titlebar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+code{font-family:var(--mono);font-size:.92em;background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+input[type=password]{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);color:var(--ink);font-size:15px}
+.preview[hidden]{display:none}
+[hidden]{display:none!important}
+html,body{margin:0}
+img{max-width:100%}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="brand"><b>Company Car Booking</b><span>SantaFe · Tucson · Largus</span></div>
+  <nav class="tabs" aria-label="Sections">
+    <a href="#book" data-view="book">Book a car</a>
+    <a href="#mine" data-view="mine">My trips</a>
+    <a href="#driver" data-view="driver">Drivers</a>
+    <a href="#dispatch" data-view="dispatch">Dispatcher</a>
+  </nav>
+</div></header>
+
+<main class="wrap">
+  <div class="status" id="status">Loading…</div>
+
+  <!-- SETUP / ACCESS GATES -->
+  <section id="v-setup" hidden>
+    <div class="panel gate">
+      <h1>Site is not connected yet</h1>
+      <p class="lead">Open <code>index.html</code> in a text editor and paste your Google Apps Script web app URL into <code>API_URL</code> at the top of the script. See the setup guide (README) for the steps.</p>
+    </div>
+  </section>
+  <section id="v-gate" hidden>
+    <form class="panel gate stack" id="gateForm">
+      <h1>Enter access code</h1>
+      <p class="lead">Ask the dispatcher for the office access code. You only need to enter it once on this device.</p>
+      <label class="f">Access code<input type="password" id="g-code" autocomplete="off" required></label>
+      <div class="preview err" id="gateErr" hidden>Wrong access code. Check it with the dispatcher.</div>
+      <button class="btn primary" type="submit">Continue</button>
+    </form>
+  </section>
+
+  <!-- BOOK -->
+  <section id="v-book" data-v="book" hidden>
+    <h1>New trip</h1>
+    <p class="lead">Choose when you leave and when you need to be back. The system picks a free car; the dispatcher can change it if needed.</p>
+    <div class="grid">
+      <form class="panel stack" id="bookForm" novalidate>
+        <label class="f">Date<input type="date" id="f-date" required></label>
+        <fieldset>
+          <legend>What you need</legend>
+          <label class="mode"><input type="radio" name="mode" id="m-wait" value="wait" checked><span><b>Wait and bring me back</b><small>The car waits for you the whole time</small></span></label>
+          <label class="mode"><input type="radio" name="mode" id="m-split" value="split"><span><b>Drop off, pick up later</b><small>The car is free for others in between</small></span></label>
+          <label class="mode"><input type="radio" name="mode" id="m-oneway" value="oneway"><span><b>One way only</b><small>No return trip needed</small></span></label>
+        </fieldset>
+        <div class="row2">
+          <label class="f">Leave office at<input type="time" id="f-dep" class="time" step="900" value="09:00" required></label>
+          <label class="f" id="retWrap">Back at office by<input type="time" id="f-ret" class="time" step="900" value="12:00"></label>
+        </div>
+        <fieldset>
+          <legend>Number of passengers</legend>
+          <div class="pax">
+            <label><input type="radio" name="pax" id="pax-1" value="1" checked><span>1</span></label>
+            <label><input type="radio" name="pax" id="pax-2" value="2"><span>2</span></label>
+            <label><input type="radio" name="pax" id="pax-3" value="3"><span>3</span></label>
+            <label><input type="radio" name="pax" id="pax-4" value="4"><span>4</span></label>
+            <label><input type="radio" name="pax" id="pax-5" value="5"><span>5</span></label>
+            <label><input type="radio" name="pax" id="pax-6" value="6"><span>6</span></label>
+          </div>
+        </fieldset>
+        <label class="f">Destination<input type="text" id="f-dest" maxlength="120" placeholder="Address or site" required></label>
+        <div class="row2">
+          <label class="f">Your name<input type="text" id="f-name" maxlength="60" placeholder="Full name" required autocomplete="name"></label>
+          <label class="f">Phone<input type="tel" id="f-phone" maxlength="30" placeholder="For the driver" autocomplete="tel"></label>
+        </div>
+        <label class="f">Car
+          <select id="f-pref">
+            <option value="">Any free car</option>
+            <option value="santafe">SantaFe</option><option value="tucson">Tucson</option><option value="largus">Largus</option>
+          </select>
+        </label>
+        <label class="f">Comment<textarea id="f-note" maxlength="300" placeholder="Cargo, documents, special requests"></textarea></label>
+        <div class="preview" id="preview">Fill in the times and we'll show which car is free.</div>
+        <button class="btn primary" type="submit" id="bookBtn">Book</button>
+      </form>
+      <div class="panel">
+        <h2>Car schedule for <span id="bookDayLabel" class="time"></span></h2>
+        <div class="scroll"><div id="bookTl"></div></div>
+        <div class="legend"><span><i style="border:2px dashed var(--accent)"></i>your trip</span><span><i style="background:repeating-linear-gradient(135deg,var(--line) 0 2px,transparent 2px 6px)"></i>car unavailable</span><span><i style="border-top:2px dotted var(--muted);height:0"></i>car free between legs</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MINE -->
+  <section id="v-mine" data-v="mine" hidden>
+    <h1>My trips</h1>
+    <p class="lead">Trips booked from this device. If your plans change, cancel the booking so colleagues can take the car.</p>
+    <div id="mineList"></div>
+  </section>
+
+  <!-- DRIVER -->
+  <section id="v-driver" data-v="driver" hidden>
+    <h1>Driver schedule</h1>
+    <p class="lead">Pick your car to see its bookings for the day.</p>
+    <div class="carpick" id="drvCars"></div>
+    <div class="drvcard" id="drvInfo"></div>
+    <div class="daynav" id="drvNav"></div>
+    <div id="drvList"></div>
+  </section>
+
+  <!-- DISPATCH -->
+  <section id="v-dispatch" data-v="dispatch" hidden>
+    <form class="panel gate stack" id="pinForm" hidden>
+      <h1>Dispatcher sign-in</h1>
+      <p class="lead">Enter the dispatcher PIN. It is set in the Settings sheet of the Google Sheet.</p>
+      <label class="f">PIN<input type="password" id="p-pin" inputmode="numeric" autocomplete="off" required></label>
+      <div class="preview err" id="pinErr" hidden>Wrong PIN.</div>
+      <button class="btn primary" type="submit">Sign in</button>
+    </form>
+    <div id="dspBody" hidden>
+      <div class="titlebar"><h1>Dispatcher panel</h1><button class="btn sm" type="button" data-act="logout">Sign out</button></div>
+      <p class="lead">Assign cars for the day, mark repairs and service a month ahead, and keep car and driver details up to date.</p>
+      <div class="panel">
+        <div class="daynav" id="dspNav"></div>
+        <div class="summary" id="dspSummary"></div>
+        <div class="scroll"><div id="dspTl"></div></div>
+        <div class="scroll" style="margin-top:14px"><table class="t" id="dspTable"></table></div>
+      </div>
+
+      <div class="panel sect">
+        <h2>Car availability by day</h2>
+        <div class="toolbar">
+          <button class="btn sm" data-act="month" data-d="-1" type="button" aria-label="Previous month">←</button>
+          <b id="monthLabel" class="time"></b>
+          <button class="btn sm" data-act="month" data-d="1" type="button" aria-label="Next month">→</button>
+          <label class="note" for="offReason">Clicking a day marks it as:</label>
+          <select id="offReason"><option value="Repair">Repair</option><option value="Service">Service</option><option value="No driver">No driver</option><option value="Other">Other</option></select>
+        </div>
+        <div class="scroll"><table class="month" id="monthTable"></table></div>
+        <p class="note">Click again to clear the mark. The number under a day is the count of bookings on that car. Bookings on an unavailable car show up as conflicts for that day.</p>
+      </div>
+
+      <div class="panel sect">
+        <h2>Trip settings</h2>
+        <div class="inline">
+          <label class="f">Fixed travel time, one way
+            <select id="travelSet">
+              <option value="15">15 min</option><option value="30">30 min</option><option value="45">45 min</option>
+              <option value="60">1 h</option><option value="90">1 h 30 min</option><option value="120">2 h</option>
+            </select>
+          </label>
+          <p class="note" style="margin:0 0 8px;max-width:48ch">Used for "One way only" and "Drop off, pick up later": the car is busy for travel there and back on each leg.</p>
+        </div>
+      </div>
+
+      <div class="panel sect">
+        <h2>Cars and drivers</h2>
+        <div class="cars-edit" id="carsEdit"></div>
+      </div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ===== CONFIG: paste your Google Apps Script web app URL here ===== */
+const API_URL = "PASTE_YOUR_WEB_APP_URL_HERE";
+/* ================================================================== */
+
+const CARS=[{id:"santafe",name:"SantaFe"},{id:"tucson",name:"Tucson"},{id:"largus",name:"Largus"}];
+const CAR=Object.fromEntries(CARS.map(c=>[c.id,c]));
+const MODE={wait:"Wait and return",split:"Drop off, pick up later",oneway:"One way only"};
+const WD=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const REASON_SHORT={"Repair":"R","Service":"S","No driver":"ND","Other":"×"};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ymd=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const today=()=>ymd(new Date());
+const pd=s=>{const[y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)};
+const addDays=(s,n)=>{const d=pd(s);d.setDate(d.getDate()+n);return ymd(d)};
+const wd=s=>WD[pd(s).getDay()];
+const tm=s=>{if(!s)return NaN;const[h,m]=s.split(":").map(Number);return h*60+m};
+const hm=n=>String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0");
+const pax=n=>(n||1)+(+n>1?" people":" person");
+const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}};
+
+const S={live:false,bookings:[],off:{},cars:{},travel:30,code:ls.get("code")||"",pin:ls.get("pin")||"",admin:false,
+  mine:(()=>{try{return JSON.parse(ls.get("myTrips")||"[]")}catch(e){return[]}})(),
+  view:"book",drvDate:today(),drvCar:ls.get("drvCar")||"santafe",dspDate:today(),month:today().slice(0,7),confirm:null,gate:null};
+const travel=()=>+S.travel||30;
+const saveMine=()=>ls.set("myTrips",JSON.stringify(S.mine.slice(-200)));
+
+/* ---------- API ---------- */
+async function api(action,payload){
+  const res=await fetch(API_URL,{method:"POST",body:JSON.stringify(Object.assign({action,code:S.code,pin:S.pin},payload||{}))});
+  if(!res.ok)throw{error:"network",message:"Server error "+res.status};
+  const j=await res.json();
+  if(!j.ok){if(j.error==="access"){showGate("access")}throw j}
+  return j;}
+let loading=false;
+async function refresh(){if(loading)return;loading=true;
+  try{const j=await api("state");S.bookings=j.bookings||[];S.off=j.off||{};S.cars=j.cars||{};S.travel=j.travel||30;S.admin=!!j.admin;
+    if(S.pin&&!S.admin){S.pin="";ls.set("pin",null)}
+    S.live=true;S.gate=null;status("");showViews();}
+  catch(e){if(e&&e.error==="access")return;status(S.live?"Can't reach the server. Showing the last loaded data.":"Can't reach the server. Check your connection and reload.",true)}
+  finally{loading=false}}
+function errText(e){return(e&&e.message)||"Couldn't save. Check your connection and try again."}
+async function mutate(action,payload,okMsg){try{const r=await api(action,payload);if(okMsg)toast(okMsg);await refresh();return r}catch(e){if(e.error!=="access")toast(errText(e));await refresh();return null}}
+
+/* ---------- model ---------- */
+function segs(b){const d=tm(b.dep),t=travel();
+  if(b.mode==="oneway")return[[d,d+2*t]];
+  const r=tm(b.ret);
+  if(b.mode==="split"&&r-d>4*t)return[[d,d+2*t],[r-2*t,r]];
+  return[[d,r]];}
+const ov=(a,b)=>a[0]<b[1]&&b[0]<a[1];
+const active=()=>S.bookings.filter(b=>b.status!=="cancelled");
+const dayItems=date=>active().filter(b=>b.date===date).sort((a,b)=>tm(a.dep)-tm(b.dep));
+const offReason=(car,date)=>(S.off[date]&&S.off[date][car])||null;
+const carInfo=id=>S.cars[id]||{};
+function load(car,date){let m=0;for(const b of dayItems(date))if(b.car===car)for(const s of segs(b))m+=s[1]-s[0];return m}
+function pick(date,sg,pref){const items=dayItems(date);
+  const free=CARS.map(c=>c.id).filter(c=>!offReason(c,date)&&!items.some(b=>b.car===c&&segs(b).some(x=>sg.some(y=>ov(x,y)))));
+  if(!free.length)return null;if(pref&&free.includes(pref))return pref;return free.sort((a,b)=>load(a,date)-load(b,date))[0];}
+function conflict(b){if(!b.car)return"No car assigned";const r=offReason(b.car,b.date);if(r)return"Car unavailable: "+r;
+  const o=dayItems(b.date).find(x=>x.car===b.car&&x.id!==b.id&&segs(x).some(p=>segs(b).some(q=>ov(p,q))));
+  return o?"Overlaps the "+o.dep+" booking":null;}
+function legs(b){const t=travel();
+  if(b.mode==="oneway")return[["Departure",b.dep],["No return needed",""]];
+  if(b.mode==="split"&&tm(b.ret)-tm(b.dep)>4*t)return[["Drop off",b.dep],["Pick up at destination",hm(tm(b.ret)-t)],["Back at office",b.ret]];
+  return[["Departure",b.dep],["Car waits on site",""],["Back at office",b.ret]];}
+
+/* ---------- UI helpers ---------- */
+let toastT;function toast(t){const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,3800)}
+function status(t,bad){const el=$("#status");el.textContent=t;el.classList.toggle("bad",!!bad);el.hidden=!t}
+const chip=c=>c?`<span class="chip ${c}">${esc(CAR[c].name)}</span>`:`<span class="chip none">no car</span>`;
+const plate=c=>{const p=c&&carInfo(c).plate;return p?`<span class="plate">${esc(p)}</span>`:""};
+function dayNav(target,date){return`<button class="btn sm" type="button" data-act="day" data-t="${target}" data-d="-1" aria-label="Previous day">←</button>
+  <span class="d">${date} <span style="color:var(--muted);font-weight:500">${wd(date)}</span></span>
+  <button class="btn sm" type="button" data-act="day" data-t="${target}" data-d="1" aria-label="Next day">→</button>
+  <button class="btn sm" type="button" data-act="day" data-t="${target}" data-d="0">Today</button>
+  <input type="date" id="${target}-pick" value="${date}" data-act-change="daypick" data-t="${target}" aria-label="Pick a date">`}
+
+function timeline(date,ghost){
+  const items=dayItems(date);let lo=7*60,hi=21*60;
+  const consider=s=>{lo=Math.min(lo,Math.floor(s[0]/60)*60);hi=Math.max(hi,Math.ceil(s[1]/60)*60)};
+  items.forEach(b=>segs(b).forEach(consider));if(ghost)ghost.segs.forEach(consider);
+  lo=Math.max(0,lo);hi=Math.min(24*60,hi);const span=hi-lo,hours=span/60;
+  const x=m=>((m-lo)/span*100).toFixed(3)+"%",w=(a,b)=>((b-a)/span*100).toFixed(3)+"%";
+  let scale="";for(let h=lo/60;h<=hi/60;h++)scale+=`<span style="left:${x(h*60)}">${String(h).padStart(2,"0")}</span>`;
+  const rows=[...CARS.map(c=>c.id)];if(items.some(b=>!b.car)||(ghost&&!ghost.car))rows.push(null);
+  let html=`<div class="tl" style="--hw:calc(100% / ${hours})"><div class="tl-row" style="border:0"><div></div><div class="tl-scale">${scale}</div></div>`;
+  for(const c of rows){
+    const off=c&&offReason(c,date);const inf=c?carInfo(c):{};
+    html+=`<div class="tl-row"><div class="tl-lab">${c?esc(CAR[c].name):"No car"}${c&&inf.plate?`<small class="time">${esc(inf.plate)}</small>`:""}${c&&inf.driver?`<small>${esc(inf.driver)}</small>`:""}</div><div class="tl-track${off?" off":""}">`;
+    if(off)html+=`<div class="tl-off">${esc(off)}</div>`;
+    for(const b of items.filter(b=>(b.car||null)===c)){
+      const sg=segs(b),cf=conflict(b),cls=(c||"none")+(cf&&c?" conf":"");
+      if(sg.length===2)html+=`<div class="gap" style="left:${x(sg[0][1])};width:${w(sg[0][1],sg[1][0])}"></div>`;
+      sg.forEach((s,i)=>{html+=`<div class="blk ${cls}" style="left:${x(s[0])};width:${w(s[0],s[1])}" title="${esc(hm(s[0])+"–"+hm(s[1])+" · "+b.name+" · "+pax(b.pax)+" · "+b.dest+(cf?" · "+cf:""))}"><span class="t">${hm(s[0])}–${hm(s[1])} · ${b.pax||1} pax</span><span class="who">${esc(b.name)}${i===1?" (pick-up)":""}</span></div>`});
+    }
+    if(ghost&&(ghost.car||null)===c){ghost.segs.forEach(s=>{html+=`<div class="blk ghost" style="left:${x(s[0])};width:${w(s[0],s[1])}"><span class="t">${hm(s[0])}–${hm(s[1])} · ${ghost.pax} pax</span><span>your trip</span></div>`})}
+    html+=`</div></div>`;
+  }
+  return html+`</div>`;
+}
+
+/* ---------- BOOK ---------- */
+function formData(){const mode=document.querySelector('input[name=mode]:checked').value;
+  return{date:$("#f-date").value,mode,dep:$("#f-dep").value,ret:mode==="oneway"?"":$("#f-ret").value,
+    dest:$("#f-dest").value.trim(),name:$("#f-name").value.trim(),phone:$("#f-phone").value.trim(),
+    pax:+document.querySelector('input[name=pax]:checked').value||1,pref:$("#f-pref").value||"",note:$("#f-note").value.trim()};}
+function validate(f){if(!f.date)return"Choose a date.";if(!f.dep)return"Enter a departure time.";
+  if(f.date<today())return"That date has passed.";
+  const t=travel();
+  if(f.mode!=="oneway"){if(!f.ret)return"Enter when you need to be back.";if(tm(f.ret)<=tm(f.dep))return"Return time must be after departure.";
+    if(tm(f.ret)-tm(f.dep)<2*t)return`Less than the ${2*t} min round trip between departure and return.`;}
+  if(f.mode==="oneway"&&tm(f.dep)+2*t>24*60)return"The trip runs past midnight.";
+  return null;}
+function renderBook(){
+  const f=formData();$("#retWrap").hidden=f.mode==="oneway";
+  $("#bookDayLabel").textContent=(f.date||today())+" "+wd(f.date||today());
+  const er=validate(f),pv=$("#preview"),btn=$("#bookBtn");
+  let ghost=null;
+  if(er){pv.className="preview err";pv.textContent=er;btn.textContent="Book"}
+  else{const sg=segs(f);const car=pick(f.date,sg,f.pref);ghost={segs:sg,car,pax:f.pax};
+    const busyTxt=sg.map(s=>hm(s[0])+"–"+hm(s[1])).join(" and ");
+    if(car){pv.className="preview ok";const inf=carInfo(car);
+      pv.innerHTML=`We'll assign ${chip(car)} ${plate(car)}${inf.driver?" · driver "+esc(inf.driver):""}<div class="note" style="margin-top:4px">Car busy ${busyTxt}${f.pref&&f.pref!==car?". "+esc(CAR[f.pref].name)+" is taken at that time":""}</div>`;
+      btn.textContent="Book"}
+    else{pv.className="preview warn";pv.innerHTML=`All cars are busy or unavailable for ${busyTxt}. Your request will go to the dispatcher without a car.`;btn.textContent="Send request to dispatcher"}}
+  btn.disabled=!!er||!S.live||sending;
+  $("#bookTl").innerHTML=timeline(f.date||today(),ghost);
+}
+let sending=false;
+async function submitBook(e){e.preventDefault();const f=formData(),er=validate(f);
+  if(er){toast(er);return}if(!f.dest){toast("Enter your destination.");$("#f-dest").focus();return}
+  if(!f.name){toast("Enter your name.");$("#f-name").focus();return}
+  sending=true;renderBook();$("#bookBtn").textContent="Saving…";
+  ls.set("name",f.name);ls.set("phone",f.phone);
+  try{const r=await api("book",{booking:f});S.mine.push({id:r.id,token:r.token});saveMine();
+    toast(r.car?`Booked: ${CAR[r.car].name}, ${f.date} at ${f.dep}`:"Request sent to the dispatcher");
+    $("#f-dest").value="";$("#f-note").value="";}
+  catch(err){if(err.error!=="access")toast(errText(err))}
+  sending=false;await refresh();renderBook();}
+
+/* ---------- MINE ---------- */
+function tripCard(b,opts){
+  const cf=b.status!=="cancelled"&&conflict(b);const inf=b.car?carInfo(b.car):{};
+  const lg=legs(b).map(([l,t])=>`<div>${t?`<span class="time">${t}</span> `:""}${esc(l)}</div>`).join("");
+  let side=b.status==="cancelled"?`<span class="flag muted">Cancelled</span>`:(cf?`<span class="flag ${b.car?"bad":"warn"}">${esc(cf)}</span>`:`<span class="flag ok">Confirmed</span>`);
+  if(opts.cancel&&b.status!=="cancelled"&&b.date>=today()){const k="c:"+b.id;
+    side+=`<button class="btn sm danger${S.confirm===k?" armed":""}" type="button" data-act="cancel" data-id="${esc(b.id)}">${S.confirm===k?"Yes, cancel":"Cancel"}</button>`}
+  return`<div class="trip${b.status==="cancelled"?" cancelled":""}">
+    <div class="when"><b>${b.dep}</b><small>${b.date}<br>${wd(b.date)}</small></div>
+    <div class="what"><div class="dest">${esc(b.dest)}</div>
+      <div class="legs">${lg}</div>
+      <div>${chip(b.car)} ${plate(b.car)} ${inf.driver?`<span class="meta">driver ${esc(inf.driver)}${inf.driverPhone?", "+esc(inf.driverPhone):""}</span>`:""}</div>
+      <div class="meta">${esc(MODE[b.mode]||"")} · ${pax(b.pax)}${opts.who?" · "+esc(b.name)+(b.phone?", "+esc(b.phone):""):""}${b.note?" · "+esc(b.note):""}</div>
+    </div>
+    <div class="side">${side}</div></div>`;}
+function renderMine(){const el=$("#mineList");
+  if(!S.live){el.innerHTML=`<div class="empty">Loading your trips…</div>`;return}
+  const ids=new Set(S.mine.map(m=>m.id));
+  const mine=S.bookings.filter(b=>ids.has(b.id)).sort((a,b)=>(a.date+a.dep).localeCompare(b.date+b.dep));
+  const t=today(),up=mine.filter(b=>b.date>=t),past=mine.filter(b=>b.date<t).reverse();
+  el.innerHTML=(up.length?`<div class="trips">${up.map(b=>tripCard(b,{cancel:true})).join("")}</div>`:`<div class="empty">No upcoming trips booked from this device. <a href="#book">Book a car</a></div>`)
+    +(past.length?`<h2 class="sect">Past 30 days</h2><div class="trips">${past.map(b=>tripCard(b,{})).join("")}</div>`:"");}
+
+/* ---------- DRIVER ---------- */
+function renderDriver(){
+  $("#drvCars").innerHTML=CARS.map(c=>`<button type="button" class="${c.id}" aria-pressed="${S.drvCar===c.id}" data-act="drvcar" data-c="${c.id}">${esc(c.name)}</button>`).join("");
+  const inf=carInfo(S.drvCar);
+  $("#drvInfo").innerHTML=`${plate(S.drvCar)||'<span>No plate number set</span>'}<span>Driver: <b>${esc(inf.driver||"not set")}</b></span>`;
+  $("#drvNav").innerHTML=dayNav("drv",S.drvDate);
+  const el=$("#drvList");
+  if(!S.live){el.innerHTML=`<div class="empty">Loading trips…</div>`;return}
+  const off=offReason(S.drvCar,S.drvDate);
+  const items=dayItems(S.drvDate).filter(b=>b.car===S.drvCar);
+  let html=off?`<div class="preview warn" style="margin-bottom:10px">This car is marked unavailable: <b>${esc(off)}</b></div>`:"";
+  html+=items.length?`<div class="trips">${items.map(b=>tripCard(b,{who:true})).join("")}</div>`:`<div class="empty">No bookings for ${esc(CAR[S.drvCar].name)} on ${S.drvDate}.</div>`;
+  const nxt=[];for(let i=1;i<=6;i++){const d=addDays(S.drvDate,i);const n=dayItems(d).filter(b=>b.car===S.drvCar).length;if(n)nxt.push(`${d} ${wd(d)}: <b>${n}</b>`)}
+  if(nxt.length)html+=`<p class="note" style="margin-top:14px">Later this week: ${nxt.join(" · ")}</p>`;
+  el.innerHTML=html;}
+
+/* ---------- DISPATCH ---------- */
+function renderDispatch(){
+  $("#pinForm").hidden=S.admin;$("#dspBody").hidden=!S.admin;if(!S.admin)return;
+  $("#dspNav").innerHTML=dayNav("dsp",S.dspDate)+`<button class="btn sm" type="button" data-act="autofix">Resolve conflicts</button>`;
+  const items=dayItems(S.dspDate),conf=items.filter(conflict);
+  const people=items.reduce((n,b)=>n+(+b.pax||1),0);
+  $("#dspSummary").innerHTML=`<div class="s"><b>${items.length}</b>bookings</div><div class="s"><b>${people}</b>passengers</div>`+CARS.map(c=>{const o=offReason(c.id,S.dspDate);
+    return`<div class="s">${esc(c.name)}: ${o?`<span class="flag bad">${esc(o)}</span>`:`<b>${items.filter(b=>b.car===c.id).length}</b>trips`}</div>`}).join("")
+    +`<div class="s${conf.length?" bad":""}"><b>${conf.length}</b>conflicts</div>`;
+  $("#dspTl").innerHTML=timeline(S.dspDate);
+  const opts=b=>`<select data-act-change="setcar" data-id="${esc(b.id)}" aria-label="Car"><option value="">— no car —</option>${CARS.map(c=>`<option value="${c.id}"${b.car===c.id?" selected":""}>${esc(c.name)}${offReason(c.id,b.date)?" (unavailable)":""}</option>`).join("")}</select>`;
+  $("#dspTable").innerHTML=items.length?`<thead><tr><th>Time</th><th>Booked by</th><th>People</th><th>Destination</th><th>Type</th><th>Car</th><th>Status</th><th></th></tr></thead><tbody>${items.map(b=>{const cf=conflict(b),k="c:"+b.id;
+    return`<tr><td class="time">${segs(b).map(s=>hm(s[0])+"–"+hm(s[1])).join("<br>")}</td><td>${esc(b.name)}${b.phone?`<div class="note">${esc(b.phone)}</div>`:""}</td><td class="time">${b.pax||1}</td><td>${esc(b.dest)}${b.note?`<div class="note">${esc(b.note)}</div>`:""}</td><td>${esc(MODE[b.mode]||"")}</td><td>${opts(b)}</td><td>${cf?`<span class="flag bad">${esc(cf)}</span>`:`<span class="flag ok">OK</span>`}</td><td><button class="btn sm danger${S.confirm===k?" armed":""}" type="button" data-act="cancel" data-id="${esc(b.id)}">${S.confirm===k?"Yes":"Cancel"}</button></td></tr>`}).join("")}</tbody>`
+    :`<tbody><tr><td class="note">No bookings for this day.</td></tr></tbody>`;
+  const[y,m]=S.month.split("-").map(Number);const days=new Date(y,m,0).getDate();
+  $("#monthLabel").textContent=S.month;const t=today();
+  let head=`<tr><th></th>`;const ds=[];
+  for(let d=1;d<=days;d++){const s=S.month+"-"+String(d).padStart(2,"0");ds.push(s);const w=pd(s).getDay();head+=`<th class="${w===0||w===6?"we":""}${s===t?" today":""}">${d}<br>${WD[w].slice(0,2)}</th>`}
+  head+=`</tr>`;const all_=active();
+  let body="";for(const c of CARS){body+=`<tr><td class="lab">${esc(c.name)}</td>`;
+    for(const s of ds){const o=offReason(c.id,s),w=pd(s).getDay(),n=all_.filter(b=>b.date===s&&b.car===c.id).length;
+      body+=`<td><button type="button" class="cell${o?" off":""}${w===0||w===6?" we":""}${s<t?" past":""}" data-act="off" data-c="${c.id}" data-d="${s}" title="${esc(c.name+" "+s+(o?": "+o:": available")+(n?" · bookings: "+n:""))}" aria-label="${esc(c.name+" "+s+(o?" unavailable, "+o:" available"))}">${o?esc(REASON_SHORT[o]||o.slice(0,2)):""}${n?`<span class="n">${n}</span>`:""}</button></td>`}
+    body+=`</tr>`}
+  $("#monthTable").innerHTML=head+body;
+  $("#travelSet").value=String(travel());
+  const ce=$("#carsEdit");if(ce.contains(document.activeElement))return;
+  ce.innerHTML=CARS.map(c=>{const i=carInfo(c.id);return`<form class="stack" data-car="${c.id}" style="border:1px solid var(--line);border-radius:8px;padding:12px">
+    <div>${chip(c.id)}</div>
+    <label class="f">Plate number<input type="text" id="ce-${c.id}-plate" name="plate" class="time" maxlength="15" value="${esc(i.plate||"")}" placeholder="A123BC 777"></label>
+    <label class="f">Driver<input type="text" id="ce-${c.id}-driver" name="driver" maxlength="60" value="${esc(i.driver||"")}"></label>
+    <label class="f">Driver phone<input type="tel" id="ce-${c.id}-phone" name="driverPhone" maxlength="30" value="${esc(i.driverPhone||"")}"></label>
+    <button class="btn sm" type="submit">Save</button></form>`}).join("");}
+
+/* ---------- routing & render ---------- */
+function showGate(kind){S.gate=kind;showViews()}
+function showViews(){
+  const configured=/^https:\/\//.test(API_URL);
+  $("#v-setup").hidden=configured;$("#v-gate").hidden=!(configured&&S.gate==="access");
+  const blocked=!configured||S.gate==="access";
+  document.querySelector("nav.tabs").hidden=blocked;
+  document.querySelectorAll("[data-v]").forEach(s=>s.hidden=blocked||s.dataset.v!==S.view);
+  document.querySelectorAll("nav.tabs a").forEach(a=>{if(a.dataset.view===S.view)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
+  if(!blocked)render();}
+function setView(){const h=location.hash.slice(1);S.view=["book","mine","driver","dispatch"].includes(h)?h:"book";showViews()}
+function render(){({book:renderBook,mine:renderMine,driver:renderDriver,dispatch:renderDispatch})[S.view]();}
+window.addEventListener("hashchange",setView);
+
+document.addEventListener("click",async e=>{const t=e.target.closest("[data-act]");if(!t)return;const a=t.dataset.act;
+  if(a==="day"){const d=+t.dataset.d,k=t.dataset.t+"Date";S[k]=d===0?today():addDays(S[k],d);render()}
+  else if(a==="drvcar"){S.drvCar=t.dataset.c;ls.set("drvCar",S.drvCar);render()}
+  else if(a==="month"){const[y,m]=S.month.split("-").map(Number);const d=new Date(y,m-1+(+t.dataset.d),1);S.month=ymd(d).slice(0,7);render()}
+  else if(a==="cancel"){const id=t.dataset.id,k="c:"+id;if(S.confirm!==k){S.confirm=k;render();setTimeout(()=>{if(S.confirm===k){S.confirm=null;render()}},4000);return}
+    S.confirm=null;const mine=S.mine.find(m=>m.id===id);t.disabled=true;
+    await mutate("cancel",{id,token:mine?mine.token:""},"Booking cancelled")}
+  else if(a==="off"){const c=t.dataset.c,d=t.dataset.d,cur=offReason(c,d);
+    S.off[d]=S.off[d]||{};S.off[d][c]=cur?null:$("#offReason").value;render();
+    await mutate("setOff",{car:c,date:d,reason:cur?"":$("#offReason").value})}
+  else if(a==="autofix"){const r=await mutate("autofix",{date:S.dspDate});if(r)toast(r.moved||r.left?`Reassigned: ${r.moved}${r.left?`, still without a car: ${r.left}`:""}`:"No conflicts")}
+  else if(a==="logout"){S.pin="";S.admin=false;ls.set("pin",null);render()}
+});
+document.addEventListener("change",async e=>{const t=e.target;const a=t.dataset&&t.dataset.actChange;
+  if(a==="daypick"&&t.value){S[t.dataset.t+"Date"]=t.value;render()}
+  else if(a==="setcar"){await mutate("setCar",{id:t.dataset.id,car:t.value},"Car assigned")}
+  else if(t.id==="travelSet"){await mutate("setTravel",{travel:+t.value},"Travel time saved")}
+});
+document.addEventListener("submit",async e=>{const f=e.target.closest("form[data-car]");if(!f)return;e.preventDefault();
+  const c=f.dataset.car,fd=new FormData(f);document.activeElement.blur();
+  await mutate("saveCar",{car:c,plate:String(fd.get("plate")||"").trim(),driver:String(fd.get("driver")||"").trim(),driverPhone:String(fd.get("driverPhone")||"").trim()},"Saved: "+CAR[c].name)});
+$("#bookForm").addEventListener("input",renderBook);$("#bookForm").addEventListener("change",renderBook);
+$("#bookForm").addEventListener("submit",submitBook);
+$("#gateForm").addEventListener("submit",async e=>{e.preventDefault();S.code=$("#g-code").value.trim();
+  try{await api("state");ls.set("code",S.code);$("#gateErr").hidden=true;S.gate=null;await refresh()}catch(err){$("#gateErr").hidden=false}});
+$("#pinForm").addEventListener("submit",async e=>{e.preventDefault();const pin=$("#p-pin").value.trim();const prev=S.pin;S.pin=pin;
+  try{await api("checkPin");ls.set("pin",pin);$("#pinErr").hidden=true;$("#p-pin").value="";await refresh()}
+  catch(err){S.pin=prev;if(err.error!=="access")$("#pinErr").hidden=false}});
+
+/* ---------- boot ---------- */
+$("#f-date").value=today();$("#f-date").min=today();
+{const n=ls.get("name");if(n)$("#f-name").value=n;const p=ls.get("phone");if(p)$("#f-phone").value=p;}
+setView();
+if(/^https:\/\//.test(API_URL)){refresh();
+  setInterval(()=>{if(document.visibilityState==="visible"&&!S.gate)refresh()},30000);
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&!S.gate)refresh()});
+}else status("");
+if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
